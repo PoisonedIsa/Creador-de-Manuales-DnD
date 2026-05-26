@@ -1,0 +1,1162 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forge D&D - Creador de Manuales</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Lora:ital,wght@0,400;0,700;1,400&family=MedievalSharp&family=Open+Sans:wght@400;700&display=swap" rel="stylesheet">
+    
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <!-- Quill Editor (Editor de Texto Enriquecido) -->
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+
+    <!-- HTML2PDF (Librería para exportación real a PDF) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <style>
+        :root {
+            --page-bg: #fdfaf6;
+            --title-color: #7f1d1d;
+            --table-bg: #fdf1dc;
+            --table-border: transparent;
+            --border-width: 0px;
+            --border-thin: 0px;
+            --page-texture: none;
+            --page-texture-size: auto;
+        }
+
+        body {
+            font-family: 'Open Sans', sans-serif;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        /* --- ESTILOS DEL EDITOR QUILL --- */
+        .ql-editor { font-family: 'Open Sans', sans-serif; min-height: 80px; font-size: 14px; }
+        .ql-snow .ql-picker.ql-font .ql-picker-label::before, .ql-snow .ql-picker.ql-font .ql-picker-item::before { content: 'Global'; }
+        .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="cinzel"]::before, .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="cinzel"]::before { content: 'Cinzel'; font-family: 'Cinzel', serif; }
+        .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="medievalsharp"]::before, .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="medievalsharp"]::before { content: 'Medieval'; font-family: 'MedievalSharp', cursive; }
+        .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="lora"]::before, .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="lora"]::before { content: 'Lora'; font-family: 'Lora', serif; }
+        .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="opensans"]::before, .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="opensans"]::before { content: 'Open Sans'; font-family: 'Open Sans', sans-serif; }
+
+        .ql-snow .ql-toolbar button.ql-customColor { width: 30px; position: relative; }
+        .ql-snow .ql-toolbar button.ql-customColor::before { content: '🎨'; font-size: 16px; }
+        .ql-snow .ql-toolbar button.ql-customBg { width: 30px; position: relative; }
+        .ql-snow .ql-toolbar button.ql-customBg::before { content: '🖌️'; font-size: 16px; }
+        
+        .ql-font-cinzel { font-family: 'Cinzel', serif; }
+        .ql-font-medievalsharp { font-family: 'MedievalSharp', cursive; }
+        .ql-font-lora { font-family: 'Lora', serif; }
+        .ql-font-opensans { font-family: 'Open Sans', sans-serif; }
+        
+        .quill-content .ql-align-center { text-align: center; }
+        .quill-content .ql-align-right { text-align: right; }
+        .quill-content .ql-align-justify { text-align: justify; }
+        .quill-content .ql-size-small { font-size: 0.75em; }
+        .quill-content .ql-size-large { font-size: 1.5em; }
+        .quill-content .ql-size-huge { font-size: 2.5em; }
+        .quill-content p { margin-bottom: 0.5em; }
+        .quill-content ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 0.5em; }
+        .quill-content ol { list-style-type: decimal; padding-left: 1.5em; margin-bottom: 0.5em; }
+        .quill-content li { margin-bottom: 0.25em; }
+        h1.quill-content p, h2.quill-content p { margin: 0; display: inline; }
+
+        /* --- CONTENEDORES HOJA A4 --- */
+        .a4-page {
+            width: 210mm;
+            height: 297mm;
+            background-color: var(--page-bg);
+            background-image: var(--page-texture);
+            background-size: var(--page-texture-size);
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+            box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+            position: relative;
+            margin-bottom: 2rem;
+            overflow: hidden;
+        }
+
+        .page-content {
+            height: 100%;
+            padding-left: 15mm;
+            padding-right: 15mm;
+            padding-top: 20mm;   /* Espacio para el encabezado */
+            padding-bottom: 20mm; /* Espacio para el pie de página */
+            column-fill: auto;
+            overflow: hidden;
+            position: relative;
+            z-index: 10;
+        }
+
+        .watermark {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.05;
+            pointer-events: none;
+            transform: rotate(-45deg);
+            z-index: 0;
+            user-select: none;
+            font-size: 150px;
+            font-weight: bold;
+            font-family: 'Cinzel', serif;
+            color: currentColor;
+            white-space: nowrap;
+        }
+
+        @media print {
+            @page { size: A4; margin: 0; }
+            body, html { margin: 0; padding: 0; background: #fff !important; width: 100%; height: 100%; }
+            #preview-container { display: flex !important; }
+            #editor-container, .w-72, .no-print { display: none !important; }
+            #main-area { overflow: visible !important; display: block !important; position: static !important; background: transparent !important; }
+            .print-area { height: auto !important; overflow: visible !important; display: block !important; }
+            .a4-page { margin-bottom: 0 !important; box-shadow: none !important; page-break-after: always; break-after: page; }
+            .break-inside-avoid { page-break-inside: avoid; }
+        }
+
+        body.pdf-export-mode .a4-page { box-shadow: none !important; margin: 0 !important; border: none !important; border-radius: 0 !important; }
+        body.pdf-export-mode .page-content { overflow: visible !important; }
+        body.pdf-export-mode .ql-editor, body.pdf-export-mode .quill-content { transform: none !important; }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-900 flex h-screen">
+
+    <!-- PANEL LATERAL -->
+    <div class="w-72 bg-slate-900 text-slate-300 flex flex-col shadow-2xl z-20 no-print flex-shrink-0">
+        <div class="p-5 border-b border-slate-800">
+            <div class="flex items-center gap-2 text-white">
+                <i class="ph ph-book-open text-red-500 text-3xl"></i>
+                <h1 class="text-2xl font-bold tracking-wider">Forge<span class="text-red-500">D&D</span></h1>
+            </div>
+            <div id="cloud-status" class="text-[10px] uppercase font-bold tracking-widest text-slate-500 flex items-center gap-1 mt-2">
+                <i class="ph ph-check-circle"></i> Listo para forjar
+            </div>
+        </div>
+
+        <div class="flex text-sm font-bold border-b border-slate-800">
+            <button onclick="switchTab('add')" id="tab-btn-add" class="flex-1 py-3 border-b-2 transition-colors border-red-500 text-white bg-slate-800">
+                Elementos
+            </button>
+            <button onclick="switchTab('settings')" id="tab-btn-settings" class="flex-1 py-3 border-b-2 transition-colors border-transparent text-slate-500 hover:text-slate-300">
+                Configuración
+            </button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-4" id="sidebar-content"></div>
+
+        <div class="p-4 bg-slate-950 flex flex-col gap-3">
+            <div class="flex gap-2 bg-slate-800 p-1 rounded-lg relative">
+                <button onclick="switchMode(true)" id="btn-edit-mode" class="flex-1 py-2 rounded text-sm font-bold flex justify-center items-center gap-2 bg-red-600 text-white shadow transition-colors">
+                    <i class="ph ph-pencil-simple"></i> Editar
+                </button>
+                <button onclick="switchMode(false)" id="btn-preview-mode" class="flex-1 py-2 rounded text-sm font-bold flex justify-center items-center gap-2 hover:bg-slate-700 transition-colors">
+                    <i class="ph ph-eye"></i> Ver A4
+                </button>
+            </div>
+            
+            <!-- Botones para Guardar/Cargar Localmente -->
+            <div class="flex gap-2">
+                <button onclick="downloadJSON()" class="flex-1 py-2 rounded text-xs font-bold flex justify-center items-center gap-1 bg-slate-700 text-white shadow hover:bg-slate-600 transition-colors">
+                    <i class="ph ph-floppy-disk"></i> Guardar JSON
+                </button>
+                <button onclick="document.getElementById('file-upload').click()" class="flex-1 py-2 rounded text-xs font-bold flex justify-center items-center gap-1 bg-slate-700 text-white shadow hover:bg-slate-600 transition-colors">
+                    <i class="ph ph-folder-open"></i> Cargar JSON
+                </button>
+                <input type="file" id="file-upload" class="hidden" accept=".json" onchange="loadJSON(event)">
+            </div>
+
+            <button onclick="exportPDF()" class="w-full py-3 bg-red-800 text-white rounded font-semibold hover:bg-red-900 shadow-md flex justify-center items-center gap-2 transition-colors mt-1">
+                <i class="ph ph-download-simple text-lg"></i> Exportar a PDF
+            </button>
+        </div>
+    </div>
+
+    <!-- ÁREA PRINCIPAL -->
+    <div class="flex-1 overflow-y-auto bg-slate-200 relative print-area" id="main-area">
+        
+        <div id="editor-container" class="max-w-4xl mx-auto space-y-6 p-8 pb-32">
+            <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-8 rounded shadow-sm text-blue-800 flex items-start gap-3">
+                <i class="ph ph-info text-2xl"></i>
+                <div class="text-sm flex-1">
+                    <strong>Guardado Automático Local:</strong> Los cambios se mantienen mientras no cierres la pestaña. <strong>Para respaldos seguros y no perder nada</strong>, usa los nuevos botones "<i class="ph ph-floppy-disk"></i> Guardar JSON" y "<i class="ph ph-folder-open"></i> Cargar JSON" del panel lateral.
+                </div>
+            </div>
+            <div id="editor-blocks"></div>
+        </div>
+
+        <div id="preview-container" class="py-8 print:py-0 flex flex-col items-center hidden">
+            <div id="preview-blocks" class="w-full flex flex-col items-center"></div>
+        </div>
+    </div>
+
+    <!-- SCRIPT DE FIREBASE PARA GUARDADO EN LA NUBE (Opcional) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'forge-dnd-default';
+
+        if (firebaseConfig) {
+            const app = initializeApp(firebaseConfig);
+            const auth = getAuth(app);
+            const db = getFirestore(app);
+            let currentUser = null;
+
+            window.saveStateToCloud = async (newState) => {
+                if (!currentUser) return;
+                window.updateCloudStatus('saving');
+                try {
+                    const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'forge_dnd', 'state');
+                    await setDoc(docRef, { data: JSON.stringify(newState) });
+                    window.updateCloudStatus('saved');
+                } catch (e) {
+                    console.error("Error saving state", e);
+                    window.updateCloudStatus('error');
+                }
+            };
+
+            const initAuth = async () => {
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                } catch(e) { console.error("Error Auth", e); window.updateCloudStatus('error'); }
+            };
+
+            onAuthStateChanged(auth, async (user) => {
+                currentUser = user;
+                if (user) {
+                    window.updateCloudStatus('syncing');
+                    try {
+                        const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'forge_dnd', 'state');
+                        const docSnap = await getDoc(docRef);
+                        if (docSnap.exists()) {
+                            const cloudState = JSON.parse(docSnap.data().data);
+                            window.state.settings = { ...window.state.settings, ...(cloudState.settings || {}) };
+                            window.state.blocks = cloudState.blocks || window.state.blocks;
+                            window.applyGlobalStyles();
+                            if (window.state.isEditMode) window.renderEditor();
+                            else window.renderPreview();
+                        }
+                        window.updateCloudStatus('saved');
+                    } catch (e) {
+                        console.error("Error loading initial data", e);
+                        window.updateCloudStatus('error');
+                    }
+                } else {
+                    window.updateCloudStatus('error');
+                }
+            });
+
+            initAuth();
+        } else {
+            window.saveStateToCloud = () => {};
+            setTimeout(() => window.updateCloudStatus('saved'), 500);
+        }
+    </script>
+
+    <!-- LOGICA PRINCIPAL DE LA APLICACIÓN -->
+    <script>
+        const Font = Quill.import('formats/font');
+        Font.whitelist = ['cinzel', 'medievalsharp', 'lora', 'opensans'];
+        Quill.register(Font, true);
+
+        const BLOCK_TYPES = { COVER: 'COVER', TEXT: 'TEXT', TABLE: 'TABLE', STAT_BLOCK: 'STAT_BLOCK', HEADING_1: 'HEADING_1', HEADING_2: 'HEADING_2', PAGE_BREAK: 'PAGE_BREAK', SPACER: 'SPACER', IMAGE: 'IMAGE', CHARACTER_SHEET: 'CHARACTER_SHEET', CALLOUT: 'CALLOUT', TOC: 'TOC' };
+        
+        // Estado Global
+        window.state = {
+            isEditMode: true,
+            activeTab: 'add',
+            settings: {
+                bgColor: '#fdfaf6',
+                texture: 'parchment',
+                titleColor: '#7f1d1d',
+                tableBg: '#fdf1dc',
+                tableBorder: '#991b1b',
+                showBorders: false,
+                columns: 2,
+                startPageNumber: 1,
+                footerText: '',
+                watermarkText: ''
+            },
+            blocks: [
+                { id: '1', type: BLOCK_TYPES.COVER, content: { title: 'Tomo del Maestro', subtitle: 'Guía de Campaña', author: 'Tu Nombre', imageUrl: '' } },
+                { id: '2', type: BLOCK_TYPES.TOC, content: { title: 'Índice de Contenidos', fontFamily: 'global', titleColor: '', itemColor: '', showDots: true } },
+                { id: '3', type: BLOCK_TYPES.HEADING_1, content: { text: 'Capítulo 1: El Despertar', fontFamily: "'Cinzel', serif" } },
+                { id: '4', type: BLOCK_TYPES.TEXT, content: { text: 'En el principio, los dioses forjaron el mundo usando la magia primordial...' } },
+                { id: '5', type: BLOCK_TYPES.CALLOUT, content: { title: 'Nota para el DM', text: 'Esta es información que solo tú deberías saber. Úsala con sabiduría.', type: 'note', fontFamily: 'global' } }
+            ]
+        };
+
+        // UI Helpers
+        window.updateCloudStatus = function(status) {
+            const el = document.getElementById('cloud-status');
+            if (!el) return;
+            if (status === 'saving') el.innerHTML = '<i class="ph ph-spinner animate-spin text-blue-400"></i> Guardando...';
+            else if (status === 'saved') el.innerHTML = '<i class="ph ph-check-circle text-green-500"></i> Guardado Local';
+            else if (status === 'loaded') el.innerHTML = '<i class="ph ph-folder-open text-green-500"></i> Proyecto Cargado';
+            else if (status === 'error') el.innerHTML = '<i class="ph ph-warning text-red-500"></i> Error';
+            else if (status === 'syncing') el.innerHTML = '<i class="ph ph-arrows-clockwise animate-spin text-amber-500"></i> Obteniendo nube...';
+            else if (status === 'pdf-success') el.innerHTML = '<i class="ph ph-file-pdf text-green-500"></i> PDF Descargado';
+            else if (status === 'pdf-error') el.innerHTML = '<i class="ph ph-warning text-red-500"></i> Error en PDF';
+            
+            // Restablecer mensaje general después de unos segundos
+            if(['saved', 'loaded', 'pdf-success', 'pdf-error'].includes(status)) {
+                setTimeout(() => { el.innerHTML = '<i class="ph ph-check-circle"></i> Listo para forjar'; }, 4000);
+            }
+        }
+
+        let saveTimeout = null;
+        function triggerSave() {
+            if (window.saveStateToCloud) {
+                clearTimeout(saveTimeout);
+                window.updateCloudStatus('saving');
+                saveTimeout = setTimeout(() => {
+                    window.saveStateToCloud(window.state);
+                    window.updateCloudStatus('saved');
+                }, 1500); 
+            }
+        }
+
+        // --- Utilidades para Guardar y Cargar JSON Local ---
+        function downloadJSON() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(window.state, null, 2));
+            const dlAnchorElem = document.createElement('a');
+            dlAnchorElem.setAttribute("href", dataStr);
+            dlAnchorElem.setAttribute("download", "forge_dnd_proyecto.json");
+            dlAnchorElem.click();
+            window.updateCloudStatus('saved');
+        }
+
+        function loadJSON(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const newState = JSON.parse(e.target.result);
+                    if (newState && newState.blocks) {
+                        window.state = newState;
+                        applyGlobalStyles();
+                        if (window.state.isEditMode) renderEditor();
+                        else renderPreview();
+                        renderSidebar();
+                        triggerSave(); 
+                        window.updateCloudStatus('loaded');
+                    } else {
+                        window.updateCloudStatus('error');
+                    }
+                } catch (error) {
+                    window.updateCloudStatus('error');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = ''; // Reset
+        }
+
+        // Utilidad: Extraer texto plano de HTML (para el índice)
+        function stripHtml(html) {
+            let tmp = document.createElement("DIV");
+            tmp.innerHTML = html;
+            return tmp.textContent || tmp.innerText || "";
+        }
+
+        // Utilidad: Comprimir imágenes grandes antes de guardar
+        function compressImage(dataUrl, maxWidth, callback) {
+            let img = new Image();
+            img.onload = function() {
+                if (img.width <= maxWidth) { callback(dataUrl); return; }
+                let canvas = document.createElement('canvas');
+                let ctx = canvas.getContext('2d');
+                let ratio = maxWidth / img.width;
+                canvas.width = maxWidth;
+                canvas.height = img.height * ratio;
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                callback(canvas.toDataURL('image/jpeg', 0.8)); // 80% calidad
+            };
+            img.src = dataUrl;
+        }
+
+        // Funciones del Estado
+        function generateId() { return Date.now().toString() + Math.random().toString(36).substring(2); }
+        
+        function getDefaultContent(type) {
+            switch (type) {
+                case BLOCK_TYPES.COVER: return { title: 'Nuevo Manual', subtitle: '', author: '', imageUrl: '' };
+                case BLOCK_TYPES.TEXT: return { text: 'Escribe tu párrafo épico aquí...' };
+                case BLOCK_TYPES.HEADING_1: return { text: 'Nuevo Título Principal', fontFamily: 'global' };
+                case BLOCK_TYPES.HEADING_2: return { text: 'Nuevo Subtítulo', fontFamily: 'global' };
+                case BLOCK_TYPES.TABLE: return { title: 'Tabla Aleatoria', fontFamily: 'global', align: 'full', headers: ['d8', 'Resultado'], rows: [['1', 'Efecto A'], ['2', 'Efecto B']], useCustomColors: false, headerBg: '', headerColor: '', rowBgOdd: '', rowBgEven: '', cellColor: '' };
+                case BLOCK_TYPES.STAT_BLOCK: return { name: 'Trasgo (Goblin)', fontFamily: 'global', meta: 'Humanoide Pequeño, Neutral Maligno', ac: '15 (Armadura de cuero)', hp: '7 (2d6)', speed: '30 ft.', stats: { str: '8 (-1)', dex: '14 (+2)', con: '10 (+0)', int: '10 (+0)', wis: '8 (-1)', cha: '8 (-1)' }, traits: '<strong>Escape Ágil.</strong> El goblin puede tomar la acción de Retirarse o Esconderse como acción adicional.' };
+                case BLOCK_TYPES.IMAGE: return { imageUrl: '', caption: 'Figura 1: Ilustración del entorno.', align: 'center', framed: true, captionSize: 'text-sm', captionFont: 'global' }; 
+                case BLOCK_TYPES.CHARACTER_SHEET: return { name: 'Nombre del Personaje', classLevel: 'Guerrero 1', race: 'Humano', background: 'Héroe del Pueblo', alignment: 'Neutral Bueno', imageUrl: '', stats: { str: '16 (+3)', dex: '14 (+2)', con: '15 (+2)', int: '9 (-1)', wis: '11 (+0)', cha: '13 (+1)' }, combat: { ac: '16', hp: '12', speed: '30 ft.', prof: '+2' }, saves: '<strong>Fuerza</strong> (+5)<br><strong>Constitución</strong> (+4)', skills: '<strong>Atletismo</strong> (+5)<br><strong>Intimidación</strong> (+3)', attacks: '<strong>Espada Larga:</strong> +5 al golpear, (1d8+3 cortante)', equipment: 'Cota de malla, Espada larga', features: '<strong>Estilo de Combate (Duelo)</strong>' };
+                case BLOCK_TYPES.PAGE_BREAK: return {};
+                case BLOCK_TYPES.SPACER: return { height: 20 };
+                case BLOCK_TYPES.CALLOUT: return { title: 'Nota del DM', text: 'Información especial para el director de juego...', type: 'note', fontFamily: 'global' };
+                case BLOCK_TYPES.TOC: return { title: 'Índice Automático', fontFamily: 'global', titleColor: '', itemColor: '', showDots: true };
+                default: return {};
+            }
+        }
+
+        function addBlock(type) { window.state.blocks.push({ id: generateId(), type: type, content: getDefaultContent(type) }); renderEditor(); triggerSave(); }
+        function removeBlock(id) { window.state.blocks = window.state.blocks.filter(b => b.id !== id); renderEditor(); triggerSave(); }
+        function moveBlock(index, direction) {
+            if (index + direction < 0 || index + direction >= window.state.blocks.length) return;
+            const temp = window.state.blocks[index];
+            window.state.blocks[index] = window.state.blocks[index + direction];
+            window.state.blocks[index + direction] = temp;
+            renderEditor(); triggerSave();
+        }
+
+        function updateContent(id, field, value) { const block = window.state.blocks.find(b => b.id === id); if (block) block.content[field] = value; triggerSave(); }
+        function updateNestedContent(id, parentField, field, value) { const block = window.state.blocks.find(b => b.id === id); if (block) block.content[parentField][field] = value; triggerSave(); }
+        function updateTableHeader(id, colIndex, value) { const block = window.state.blocks.find(b => b.id === id); if (block) block.content.headers[colIndex] = value; triggerSave(); }
+        function updateTableCell(id, rowIndex, colIndex, value) { const block = window.state.blocks.find(b => b.id === id); if (block) block.content.rows[rowIndex][colIndex] = value; triggerSave(); }
+
+        function addTableCol(id) {
+            const block = window.state.blocks.find(b => b.id === id);
+            if (block) { block.content.headers.push('Columna'); block.content.rows.forEach(row => row.push('')); renderEditor(); triggerSave(); }
+        }
+
+        function addTableRow(id) {
+            const block = window.state.blocks.find(b => b.id === id);
+            if (block) { block.content.rows.push(new Array(block.content.headers.length).fill('')); renderEditor(); triggerSave(); }
+        }
+
+        function handleImageUpload(input, id, field) {
+            const file = input.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    compressImage(e.target.result, 1200, (compressedImg) => {
+                        updateContent(id, field, compressedImg);
+                        renderEditor();
+                    });
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function switchTab(tab) {
+            window.state.activeTab = tab;
+            const btnAdd = document.getElementById('tab-btn-add');
+            const btnSet = document.getElementById('tab-btn-settings');
+            if (tab === 'add') {
+                btnAdd.className = "flex-1 py-3 border-b-2 transition-colors border-red-500 text-white bg-slate-800";
+                btnSet.className = "flex-1 py-3 border-b-2 transition-colors border-transparent text-slate-500 hover:text-slate-300";
+            } else {
+                btnSet.className = "flex-1 py-3 border-b-2 transition-colors border-red-500 text-white bg-slate-800";
+                btnAdd.className = "flex-1 py-3 border-b-2 transition-colors border-transparent text-slate-500 hover:text-slate-300";
+            }
+            renderSidebar();
+        }
+
+        function switchMode(isEdit) {
+            window.state.isEditMode = isEdit;
+            const btnEdit = document.getElementById('btn-edit-mode');
+            const btnPrev = document.getElementById('btn-preview-mode');
+            const editorContainer = document.getElementById('editor-container');
+            const previewContainer = document.getElementById('preview-container');
+
+            if (isEdit) {
+                btnEdit.className = "flex-1 py-2 rounded text-sm font-bold flex justify-center items-center gap-2 bg-red-600 text-white shadow transition-colors";
+                btnPrev.className = "flex-1 py-2 rounded text-sm font-bold flex justify-center items-center gap-2 hover:bg-slate-700 transition-colors text-slate-300";
+                editorContainer.classList.remove('hidden');
+                previewContainer.classList.add('hidden');
+                renderEditor();
+            } else {
+                btnPrev.className = "flex-1 py-2 rounded text-sm font-bold flex justify-center items-center gap-2 bg-red-600 text-white shadow transition-colors";
+                btnEdit.className = "flex-1 py-2 rounded text-sm font-bold flex justify-center items-center gap-2 hover:bg-slate-700 transition-colors text-slate-300";
+                editorContainer.classList.add('hidden');
+                previewContainer.classList.remove('hidden');
+                renderPreview();
+            }
+        }
+
+        function updateSettings(field, value) {
+            window.state.settings[field] = value;
+            applyGlobalStyles();
+            if (window.state.activeTab === 'settings') renderSidebar();
+            triggerSave();
+        }
+
+        function applyGlobalStyles() {
+            const root = document.documentElement;
+            const s = window.state.settings;
+            root.style.setProperty('--page-bg', s.bgColor);
+            root.style.setProperty('--title-color', s.titleColor);
+            root.style.setProperty('--table-bg', s.tableBg);
+            // El color del borde ahora sigue al titleColor si están activos
+            root.style.setProperty('--table-border', s.showBorders ? s.titleColor : 'transparent');
+            root.style.setProperty('--border-width', s.showBorders ? '2px' : '0px');
+            root.style.setProperty('--border-thin', s.showBorders ? '1px' : '0px');
+
+            let bgImage = 'none', bgSize = 'auto';
+            if (s.texture === 'parchment') {
+                bgImage = `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.08'/%3E%3C/svg%3E")`;
+            } else if (s.texture === 'grid') {
+                bgImage = 'linear-gradient(rgba(0,0,0,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.05) 1px, transparent 1px)';
+                bgSize = '20px 20px';
+            } else if (s.texture === 'dots') {
+                bgImage = 'radial-gradient(rgba(0,0,0,0.08) 1.5px, transparent 1.5px)';
+                bgSize = '20px 20px';
+            }
+            root.style.setProperty('--page-texture', bgImage);
+            root.style.setProperty('--page-texture-size', bgSize);
+        }
+
+        async function exportPDF() {
+            switchMode(false);
+            const btn = document.querySelector('button[onclick="exportPDF()"]');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="ph ph-spinner animate-spin text-lg"></i> Generando PDF...';
+            btn.disabled = true;
+
+            await document.fonts.ready;
+
+            setTimeout(() => { 
+                const element = document.getElementById('preview-blocks');
+                document.body.classList.add('pdf-export-mode');
+
+                const opt = {
+                    margin:       0,
+                    filename:     'Forge_DnD_Manual.pdf',
+                    image:        { type: 'jpeg', quality: 0.98 },
+                    html2canvas:  { scale: 2.5, useCORS: true, letterRendering: true, scrollX: 0, scrollY: 0, logging: false },
+                    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                };
+
+                html2pdf().set(opt).from(element).save().then(() => {
+                    document.body.classList.remove('pdf-export-mode');
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                    window.updateCloudStatus('pdf-success');
+                }).catch(err => {
+                    console.error("Error al exportar PDF:", err);
+                    document.body.classList.remove('pdf-export-mode');
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                    window.updateCloudStatus('pdf-error');
+                });
+            }, 1000);
+        }
+
+        // --- RENDER SIDEBAR ---
+        function renderSidebar() {
+            const container = document.getElementById('sidebar-content');
+            let html = '';
+            const s = window.state.settings;
+
+            if (window.state.activeTab === 'add') {
+                html = `
+                    <div class="flex flex-col gap-2">
+                        <button onclick="addBlock('${BLOCK_TYPES.HEADING_1}')" class="flex items-center px-4 py-2 rounded font-semibold transition-colors bg-slate-200 text-slate-800 hover:bg-slate-300 justify-start text-sm gap-2"><i class="ph ph-text-t"></i> Título H1</button>
+                        <button onclick="addBlock('${BLOCK_TYPES.HEADING_2}')" class="flex items-center px-4 py-2 rounded font-semibold transition-colors bg-slate-200 text-slate-800 hover:bg-slate-300 justify-start text-sm gap-2"><i class="ph ph-text-t"></i> Subtítulo H2</button>
+                        <button onclick="addBlock('${BLOCK_TYPES.TEXT}')" class="flex items-center px-4 py-2 rounded font-semibold transition-colors bg-slate-200 text-slate-800 hover:bg-slate-300 justify-start text-sm gap-2"><i class="ph ph-text-align-left"></i> Párrafo de Texto</button>
+                        
+                        <div class="my-2 border-t border-slate-700"></div>
+                        <h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest px-2 mb-1">Cajas e Información</h4>
+                        <button onclick="addBlock('${BLOCK_TYPES.CALLOUT}')" class="flex items-center px-4 py-2 rounded font-semibold transition-colors bg-blue-100 text-blue-900 hover:bg-blue-200 justify-start text-sm gap-2"><i class="ph ph-warning-circle"></i> Caja de Info / Nota DM</button>
+                        <button onclick="addBlock('${BLOCK_TYPES.TOC}')" class="flex items-center px-4 py-2 rounded font-semibold transition-colors bg-purple-100 text-purple-900 hover:bg-purple-200 justify-start text-sm gap-2"><i class="ph ph-list-numbers"></i> Índice Automático</button>
+
+                        <div class="my-2 border-t border-slate-700"></div>
+                        <h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest px-2 mb-1">Visuales</h4>
+                        <button onclick="addBlock('${BLOCK_TYPES.IMAGE}')" class="flex items-center px-4 py-2 rounded font-semibold transition-colors bg-amber-100 text-amber-900 hover:bg-amber-200 justify-start text-sm gap-2"><i class="ph ph-image-square"></i> Imagen / Ilustración</button>
+                        <button onclick="addBlock('${BLOCK_TYPES.TABLE}')" class="flex items-center px-4 py-2 rounded font-semibold transition-colors bg-slate-200 text-slate-800 hover:bg-slate-300 justify-start text-sm gap-2"><i class="ph ph-table"></i> Tabla D&D</button>
+                        <button onclick="addBlock('${BLOCK_TYPES.STAT_BLOCK}')" class="flex items-center px-4 py-2 rounded font-semibold transition-colors bg-slate-200 text-slate-800 hover:bg-slate-300 justify-start text-sm gap-2"><i class="ph ph-skull"></i> Monstruo (Stats)</button>
+                        
+                        <div class="my-2 border-t border-slate-700"></div>
+                        <h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest px-2 mb-1">Estructura</h4>
+                        <button onclick="addBlock('${BLOCK_TYPES.SPACER}')" class="flex items-center px-4 py-2 rounded font-semibold transition-colors bg-slate-800 text-slate-300 hover:bg-slate-700 justify-start text-sm gap-2"><i class="ph ph-arrows-out-line-vertical"></i> Espacio en Blanco</button>
+                        <button onclick="addBlock('${BLOCK_TYPES.PAGE_BREAK}')" class="flex items-center px-4 py-2 rounded font-semibold transition-colors border border-dashed border-red-500 text-red-400 hover:bg-red-900 justify-start text-sm gap-2"><i class="ph ph-arrows-split"></i> Salto de Página (Manual)</button>
+                        <button onclick="addBlock('${BLOCK_TYPES.COVER}')" class="flex items-center px-4 py-2 rounded font-semibold transition-colors border-2 border-slate-600 text-slate-300 hover:bg-slate-800 justify-start text-sm gap-2 mt-2"><i class="ph ph-image"></i> Portada Completa</button>
+                        <button onclick="addBlock('${BLOCK_TYPES.CHARACTER_SHEET}')" class="flex items-center px-4 py-2 rounded font-semibold transition-colors border-2 border-blue-600 text-blue-300 hover:bg-slate-800 justify-start text-sm gap-2 mt-2"><i class="ph ph-user"></i> Hoja de Personaje Prediseñado</button>
+                    </div>
+                `;
+            } else {
+                html = `
+                    <div class="flex flex-col gap-4">
+                        <h3 class="text-white font-bold mb-2 border-b border-slate-700 pb-1">Fondo de Hoja Global</h3>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 mb-1">Color Base</label>
+                            <div class="flex gap-2">
+                                <input type="color" value="${s.bgColor}" onchange="updateSettings('bgColor', this.value)" class="w-8 h-8 p-0 border-0 rounded cursor-pointer">
+                                <input type="text" value="${s.bgColor}" oninput="updateSettings('bgColor', this.value)" class="flex-1 bg-slate-800 text-white p-1 rounded text-xs uppercase">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 mb-1">Textura / Trama</label>
+                            <select onchange="updateSettings('texture', this.value)" class="w-full bg-slate-800 text-white p-2 rounded text-sm outline-none focus:ring-2 focus:ring-red-500">
+                                <option value="none" ${s.texture === 'none' ? 'selected' : ''}>Color Sólido</option>
+                                <option value="parchment" ${s.texture === 'parchment' ? 'selected' : ''}>Pergamino Antiguo</option>
+                                <option value="grid" ${s.texture === 'grid' ? 'selected' : ''}>Cuadrícula</option>
+                                <option value="dots" ${s.texture === 'dots' ? 'selected' : ''}>Puntos</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mt-4 border-t border-slate-700 pt-4">
+                            <h4 class="text-white font-bold mb-3 text-sm">📃 Estructura y Paginación</h4>
+                            <div class="mt-2">
+                                <label class="block text-xs font-bold text-slate-400 mb-1">Columnas de Texto</label>
+                                <select onchange="updateSettings('columns', parseInt(this.value))" class="w-full bg-slate-800 text-white p-2 rounded text-sm outline-none">
+                                    <option value="1" ${s.columns === 1 ? 'selected' : ''}>1 Columna Continua</option>
+                                    <option value="2" ${s.columns === 2 ? 'selected' : ''}>2 Columnas Clásicas</option>
+                                </select>
+                            </div>
+                            <div class="mt-3">
+                                <label class="block text-xs font-bold text-slate-400 mb-1">Empezar a numerar desde:</label>
+                                <input type="number" min="1" value="${s.startPageNumber || 1}" oninput="updateSettings('startPageNumber', parseInt(this.value) || 1)" class="w-full bg-slate-800 text-white p-2 rounded text-sm outline-none">
+                            </div>
+                            <div class="mt-3">
+                                <label class="block text-xs font-bold text-slate-400 mb-1">Texto Encabezado (Arriba Derecha)</label>
+                                <input type="text" value="${s.footerText || ''}" placeholder="Vacío = Sin texto" oninput="updateSettings('footerText', this.value)" class="w-full bg-slate-800 text-white p-2 rounded text-sm outline-none">
+                            </div>
+                            <div class="mt-3">
+                                <label class="block text-xs font-bold text-slate-400 mb-1">Marca de Agua Global</label>
+                                <input type="text" value="${s.watermarkText || ''}" placeholder="Ej: BORRADOR" oninput="updateSettings('watermarkText', this.value)" class="w-full bg-slate-800 text-white p-2 rounded text-sm outline-none">
+                            </div>
+                        </div>
+
+                        <div class="mt-4 border-t border-slate-700 pt-4">
+                            <h4 class="text-white font-bold mb-3 text-sm">🎨 Tablas Globales</h4>
+                            <div class="mt-2">
+                                <label class="block text-xs font-bold text-slate-400 mb-1">Títulos y Líneas</label>
+                                <div class="flex gap-2"><input type="color" value="${s.titleColor}" onchange="updateSettings('titleColor', this.value)" class="w-8 h-8 p-0 border-0 rounded cursor-pointer"></div>
+                            </div>
+                            <div class="mt-2">
+                                <label class="block text-xs font-bold text-slate-400 mb-1">Relleno Interior Global</label>
+                                <div class="flex gap-2"><input type="color" value="${s.tableBg}" onchange="updateSettings('tableBg', this.value)" class="w-8 h-8 p-0 border-0 rounded cursor-pointer"></div>
+                            </div>
+                            <div class="mt-4 flex items-center gap-2 bg-slate-800 p-2 rounded">
+                                <input type="checkbox" id="showBorders" ${s.showBorders ? 'checked' : ''} onchange="updateSettings('showBorders', this.checked)" class="w-4 h-4 cursor-pointer accent-red-500">
+                                <label for="showBorders" class="text-xs font-bold text-slate-300 cursor-pointer">Mostrar Bordes Duros</label>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            container.innerHTML = html;
+        }
+
+        // Selector para tipografía
+        function getFontSelector(id, currentValue, field = 'fontFamily') {
+            return `<select onchange="updateContent('${id}', '${field}', this.value)" class="p-1 border rounded text-xs outline-none cursor-pointer">
+                        <option value="global" ${currentValue==='global'?'selected':''}>Fuente General</option>
+                        <option value="'Cinzel', serif" ${currentValue==="'Cinzel', serif"?'selected':''}>Cinzel (Épica)</option>
+                        <option value="'MedievalSharp', cursive" ${currentValue==="'MedievalSharp', cursive"?'selected':''}>Medieval</option>
+                        <option value="'Lora', serif" ${currentValue==="'Lora', serif"?'selected':''}>Lora (Elegante)</option>
+                        <option value="'Open Sans', sans-serif" ${currentValue==="'Open Sans', sans-serif"?'selected':''}>Moderna</option>
+                    </select>`;
+        }
+        
+        function getAlignSelector(id, currentValue) {
+            return `<select onchange="updateContent('${id}', 'align', this.value)" class="p-1 border rounded text-sm outline-none cursor-pointer">
+                        <option value="center" ${currentValue==='center'?'selected':''}>Centrado</option>
+                        <option value="left" ${currentValue==='left'?'selected':''}>Izquierda</option>
+                        <option value="right" ${currentValue==='right'?'selected':''}>Derecha</option>
+                        <option value="full" ${currentValue==='full'?'selected':''}>Ancho Completo</option>
+                    </select>`;
+        }
+
+        // --- RENDER EDITOR ---
+        function renderEditor() {
+            const container = document.getElementById('editor-blocks');
+            if (window.state.blocks.length === 0) {
+                container.innerHTML = `<div class="text-center p-12 text-slate-400 border-2 border-dashed border-slate-300 rounded-xl">Agrega elementos desde el panel lateral.</div>`;
+                return;
+            }
+
+            let html = '';
+            window.state.blocks.forEach((block, index) => {
+                let editorContent = '';
+                const c = block.content;
+                const id = block.id;
+
+                if (block.type === BLOCK_TYPES.PAGE_BREAK) {
+                    editorContent = `<div class="py-4 border-2 border-dashed border-red-300 rounded bg-red-50 text-center flex items-center justify-center gap-2"><i class="ph ph-scissors text-red-500"></i><span class="text-red-600 font-bold uppercase text-sm tracking-widest">Salto Manual de Página</span></div>`;
+                }
+                else if (block.type === BLOCK_TYPES.TOC) {
+                    editorContent = `<div class="p-4 bg-slate-50 border border-slate-300 rounded shadow-sm text-center">
+                        <div class="flex justify-between items-center mb-3 border-b border-slate-200 pb-2">
+                            <h3 class="font-bold text-lg flex items-center gap-2 text-slate-700"><i class="ph ph-list-numbers"></i> Índice Automático</h3>
+                            <div class="flex gap-2 items-center">
+                                ${getFontSelector(id, c.fontFamily)}
+                            </div>
+                        </div>
+                        <input class="w-full p-2 border rounded font-bold text-center mb-3 text-sm text-slate-600" placeholder="Título del Índice" value="${c.title || 'Índice de Contenidos'}" oninput="updateContent('${id}', 'title', this.value)">
+                        
+                        <div class="flex flex-wrap gap-4 justify-center items-center text-xs bg-white p-3 border rounded shadow-sm">
+                            <div class="flex items-center gap-2">
+                                <label class="font-bold text-slate-600">Color Título:</label>
+                                <input type="color" value="${c.titleColor || window.state.settings.titleColor}" onchange="updateContent('${id}', 'titleColor', this.value)" class="w-6 h-6 p-0 border-0 rounded cursor-pointer">
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <label class="font-bold text-slate-600">Color Textos:</label>
+                                <input type="color" value="${c.itemColor || '#1e293b'}" onchange="updateContent('${id}', 'itemColor', this.value)" class="w-6 h-6 p-0 border-0 rounded cursor-pointer">
+                            </div>
+                            <div class="flex items-center gap-2 border-l border-slate-300 pl-4">
+                                <input type="checkbox" id="dots-${id}" ${c.showDots !== false ? 'checked' : ''} onchange="updateContent('${id}', 'showDots', this.checked)" class="w-4 h-4 accent-purple-500">
+                                <label for="dots-${id}" class="font-bold text-slate-600 cursor-pointer">Líneas Punteadas</label>
+                            </div>
+                        </div>
+                        
+                        <p class="text-xs text-slate-500 mt-3">El índice se generará y numerará automáticamente en la vista A4 usando los Títulos y Subtítulos que insertes en el manual.</p>
+                    </div>`;
+                }
+                else if (block.type === BLOCK_TYPES.SPACER) {
+                    editorContent = `<div class="p-4 bg-white border rounded shadow-sm"><h3 class="font-bold text-lg flex items-center gap-2 mb-3 border-b pb-2"><i class="ph ph-arrows-out-line-vertical"></i> Espacio en Blanco (Blanquet)</h3>
+                        <div class="flex items-center gap-4 mt-2">
+                            <input type="range" min="5" max="250" value="${c.height}" oninput="updateContent('${id}', 'height', this.value); this.nextElementSibling.innerText = this.value + ' mm';" class="flex-1 accent-red-500">
+                            <span class="text-sm font-bold text-slate-600 w-16 text-right">${c.height} mm</span>
+                        </div></div>`;
+                }
+                else if (block.type === BLOCK_TYPES.COVER) {
+                    const displayUrl = c.imageUrl && c.imageUrl.startsWith('data:') ? '[Imagen cargada localmente]' : c.imageUrl;
+                    editorContent = `
+                        <div class="p-4 bg-white border rounded shadow-sm">
+                            <h3 class="mb-4 font-bold text-lg border-b pb-2 flex items-center gap-2"><i class="ph ph-image"></i> Portada Completa</h3>
+                            <div class="flex flex-col mb-3"><label class="text-sm font-bold text-slate-700">Título</label><input class="p-2 border rounded" value="${c.title}" oninput="updateContent('${id}', 'title', this.value)"></div>
+                            <div class="flex flex-col mb-3"><label class="text-sm font-bold text-slate-700">Subtítulo</label><input class="p-2 border rounded" value="${c.subtitle}" oninput="updateContent('${id}', 'subtitle', this.value)"></div>
+                            <div class="flex flex-col mb-3"><label class="text-sm font-bold text-slate-700">Autor</label><input class="p-2 border rounded" value="${c.author}" oninput="updateContent('${id}', 'author', this.value)"></div>
+                            <div class="flex flex-col mb-3"><label class="text-sm font-bold text-slate-700">Fondo</label>
+                                <div class="flex gap-2"><input type="file" accept="image/*" onchange="handleImageUpload(this, '${id}', 'imageUrl')" class="file:bg-red-50 file:text-red-700 file:border-0 file:rounded text-sm w-1/2">
+                                <input class="p-2 border rounded flex-1 text-sm" placeholder="O pega una URL..." value="${displayUrl}" oninput="updateContent('${id}', 'imageUrl', this.value)"></div>
+                            </div>
+                        </div>`;
+                } 
+                else if (block.type === BLOCK_TYPES.IMAGE) {
+                    const displayUrl = c.imageUrl && c.imageUrl.startsWith('data:') ? '[Imagen local]' : c.imageUrl;
+                    editorContent = `
+                        <div class="p-4 bg-amber-50 border border-amber-200 rounded shadow-sm">
+                            <div class="flex justify-between items-center mb-4 border-b border-amber-200 pb-2">
+                                <h3 class="font-bold text-lg text-amber-900 flex items-center gap-2"><i class="ph ph-image-square"></i> Imagen</h3>
+                                <div class="flex gap-2 items-center"><input type="checkbox" id="frame-${id}" ${c.framed ? 'checked' : ''} onchange="updateContent('${id}', 'framed', this.checked)" class="accent-amber-600"><label for="frame-${id}" class="text-xs font-bold text-amber-800">Marco D&D</label>${getAlignSelector(id, c.align)}</div>
+                            </div>
+                            <div class="flex gap-2 mb-3"><input type="file" accept="image/*" onchange="handleImageUpload(this, '${id}', 'imageUrl')" class="text-sm file:border-0 file:bg-amber-100"><input class="p-2 border rounded border-amber-300 flex-1 text-sm bg-white" placeholder="URL web..." value="${displayUrl}" oninput="updateContent('${id}', 'imageUrl', this.value)"></div>
+                            
+                            <div class="flex flex-col gap-1 border border-amber-300 rounded p-2 bg-white">
+                                <label class="text-xs font-bold text-amber-900">Configuración del Pie de foto:</label>
+                                <div class="flex gap-2 w-full">
+                                    <input class="p-2 border rounded border-slate-300 flex-1 text-sm bg-white" placeholder="Pie de Foto (opcional)" value="${c.caption || ''}" oninput="updateContent('${id}', 'caption', this.value)">
+                                    <select onchange="updateContent('${id}', 'captionSize', this.value)" class="p-2 border rounded text-xs outline-none bg-white">
+                                        <option value="text-xs" ${c.captionSize==='text-xs'?'selected':''}>Pequeño</option>
+                                        <option value="text-sm" ${c.captionSize==='text-sm' || !c.captionSize ?'selected':''}>Normal</option>
+                                        <option value="text-base" ${c.captionSize==='text-base'?'selected':''}>Grande</option>
+                                    </select>
+                                    ${getFontSelector(id, c.captionFont || 'global', 'captionFont')}
+                                </div>
+                            </div>
+                        </div>`;
+                }
+                else if (block.type === BLOCK_TYPES.TEXT || block.type === BLOCK_TYPES.HEADING_1 || block.type === BLOCK_TYPES.HEADING_2) {
+                    const isText = block.type === BLOCK_TYPES.TEXT;
+                    const title = isText ? 'Párrafo de Texto Rico' : (block.type === BLOCK_TYPES.HEADING_1 ? 'Encabezado Nivel 1' : 'Encabezado Nivel 2');
+                    const icon = isText ? 'ph-text-align-left' : 'ph-text-t';
+                    editorContent = `
+                        <div class="p-4 bg-white border rounded shadow-sm">
+                            <div class="flex justify-between items-center mb-3 border-b pb-2">
+                                <h3 class="font-bold text-lg flex items-center gap-2"><i class="ph ${icon}"></i> ${title}</h3>
+                                ${!isText ? getFontSelector(id, c.fontFamily) : ''}
+                            </div>
+                            <div class="border rounded border-slate-300 overflow-hidden"><div class="quill-target bg-white min-h-[${isText?'100':'50'}px]" data-block="${id}" data-field="text">${c.text}</div></div>
+                        </div>`;
+                }
+                else if (block.type === BLOCK_TYPES.CALLOUT) {
+                    editorContent = `
+                        <div class="p-4 bg-white border rounded shadow-sm">
+                            <div class="flex justify-between items-center mb-3 border-b pb-2">
+                                <h3 class="font-bold text-lg flex items-center gap-2 text-blue-800"><i class="ph ph-warning-circle"></i> Caja de Información / Nota</h3>
+                                <div class="flex gap-2">
+                                    <select onchange="updateContent('${id}', 'type', this.value)" class="p-1 border rounded text-xs outline-none cursor-pointer bg-slate-100">
+                                        <option value="note" ${c.type==='note'?'selected':''}>Estilo: Nota del DM (Reglas)</option>
+                                        <option value="read" ${c.type==='read'?'selected':''}>Estilo: Texto Descriptivo (Lectura)</option>
+                                    </select>
+                                    ${getFontSelector(id, c.fontFamily)}
+                                </div>
+                            </div>
+                            <input class="w-full p-2 border rounded mb-3 font-bold bg-slate-50" placeholder="Título de la Nota (Opcional)" value="${c.title || ''}" oninput="updateContent('${id}', 'title', this.value)">
+                            <div class="border rounded border-slate-300 overflow-hidden"><div class="quill-target bg-white min-h-[80px]" data-block="${id}" data-field="text">${c.text}</div></div>
+                        </div>`;
+                }
+                else if (block.type === BLOCK_TYPES.TABLE) {
+                    let headersHtml = c.headers.map((h, i) => `<input value="${h}" oninput="updateTableHeader('${id}', ${i}, this.value)" class="p-1 border rounded min-w-[120px] flex-1 outline-none">`).join('');
+                    let rowsHtml = c.rows.map((row, rIdx) => `<div class="flex gap-2 mb-2">${row.map((cell, cIdx) => `<input value="${cell}" oninput="updateTableCell('${id}', ${rIdx}, ${cIdx}, this.value)" class="p-1 border rounded min-w-[120px] flex-1 outline-none">`).join('')}</div>`).join('');
+
+                    editorContent = `
+                        <div class="p-4 bg-white border rounded shadow-sm overflow-x-auto">
+                            <div class="flex justify-between items-center mb-4 border-b pb-2">
+                                <h3 class="font-bold text-lg flex items-center gap-2"><i class="ph ph-table"></i> Tabla de Datos</h3>
+                                <div class="flex gap-2">${getAlignSelector(id, c.align)}${getFontSelector(id, c.fontFamily)}</div>
+                            </div>
+                            <input class="w-full p-2 border rounded mb-4" placeholder="Título de la tabla" value="${c.title || ''}" oninput="updateContent('${id}', 'title', this.value)">
+                            <div class="mb-4">
+                                <div class="flex gap-2 mb-2 font-bold">${headersHtml}<button onclick="addTableCol('${id}')" class="bg-slate-200 px-2 py-1 rounded">+</button></div>
+                                ${rowsHtml}
+                                <button onclick="addTableRow('${id}')" class="mt-2 text-sm w-full border-dashed border-2 py-1 text-slate-600 hover:bg-slate-50 rounded">Añadir Fila</button>
+                            </div>
+                            
+                            <div class="mt-4 bg-slate-50 p-3 rounded border border-slate-200">
+                                <label class="flex items-center gap-2 text-sm font-bold text-slate-700 cursor-pointer mb-2">
+                                    <input type="checkbox" ${c.useCustomColors ? 'checked' : ''} onchange="updateContent('${id}', 'useCustomColors', this.checked); renderEditor();" class="accent-red-500 w-4 h-4">
+                                    Usar colores específicos para esta tabla
+                                </label>
+                                ${c.useCustomColors ? `
+                                    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs mt-3">
+                                        <div class="flex flex-col"><label class="mb-1 font-bold text-slate-600">Fondo Título</label><input type="color" value="${c.headerBg || '#e2e8f0'}" onchange="updateContent('${id}', 'headerBg', this.value)" class="w-full h-8 p-0 cursor-pointer rounded border"></div>
+                                        <div class="flex flex-col"><label class="mb-1 font-bold text-slate-600">Texto Título</label><input type="color" value="${c.headerColor || '#1e293b'}" onchange="updateContent('${id}', 'headerColor', this.value)" class="w-full h-8 p-0 cursor-pointer rounded border"></div>
+                                        <div class="flex flex-col"><label class="mb-1 font-bold text-slate-600">Fila Impar</label><input type="color" value="${c.rowBgOdd || '#f8f1e7'}" onchange="updateContent('${id}', 'rowBgOdd', this.value)" class="w-full h-8 p-0 cursor-pointer rounded border"></div>
+                                        <div class="flex flex-col"><label class="mb-1 font-bold text-slate-600">Fila Par</label><input type="color" value="${c.rowBgEven || '#ffffff'}" onchange="updateContent('${id}', 'rowBgEven', this.value)" class="w-full h-8 p-0 cursor-pointer rounded border"></div>
+                                        <div class="flex flex-col"><label class="mb-1 font-bold text-slate-600">Texto Celdas</label><input type="color" value="${c.cellColor || '#334155'}" onchange="updateContent('${id}', 'cellColor', this.value)" class="w-full h-8 p-0 cursor-pointer rounded border"></div>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>`;
+                } 
+                else if (block.type === BLOCK_TYPES.STAT_BLOCK) {
+                    const statsHtml = ['str', 'dex', 'con', 'int', 'wis', 'cha'].map(stat => `<div class="text-center"><label class="block text-xs font-bold uppercase">${stat}</label><input value="${c.stats[stat]}" oninput="updateNestedContent('${id}', 'stats', '${stat}', this.value)" class="w-full text-center border p-1 rounded"></div>`).join('');
+                    editorContent = `<div class="p-4 bg-white border rounded shadow-sm"><div class="flex justify-between items-center mb-4 border-b pb-2"><h3 class="font-bold text-lg flex items-center gap-2"><i class="ph ph-skull"></i> Bloque de Monstruo</h3>${getFontSelector(id, c.fontFamily)}</div><div class="grid grid-cols-2 gap-4"><div class="flex flex-col"><label class="text-xs font-bold">Nombre</label><input value="${c.name}" oninput="updateContent('${id}', 'name', this.value)" class="p-1 border rounded"></div><div class="flex flex-col"><label class="text-xs font-bold">Tipo/Alineamiento</label><input value="${c.meta}" oninput="updateContent('${id}', 'meta', this.value)" class="p-1 border rounded"></div><div class="flex flex-col"><label class="text-xs font-bold">AC</label><input value="${c.ac}" oninput="updateContent('${id}', 'ac', this.value)" class="p-1 border rounded"></div><div class="flex flex-col"><label class="text-xs font-bold">HP</label><input value="${c.hp}" oninput="updateContent('${id}', 'hp', this.value)" class="p-1 border rounded"></div></div><div class="grid grid-cols-6 gap-2 my-4 p-2 bg-slate-100 rounded">${statsHtml}</div><div class="flex flex-col"><label class="text-xs font-bold mb-1">Rasgos y Acciones</label><div class="border rounded"><div class="quill-target bg-white min-h-[80px]" data-block="${id}" data-field="traits">${c.traits}</div></div></div></div>`;
+                }
+                else if (block.type === BLOCK_TYPES.CHARACTER_SHEET) {
+                    editorContent = `<div class="p-4 bg-white border rounded shadow-sm"><h3 class="font-bold text-lg mb-4 text-blue-800"><i class="ph ph-user"></i> Hoja de Personaje Prediseñado</h3><div class="text-sm italic text-slate-500 mb-4">Nota: Para editar la Hoja de Personaje completa, visualízala. (Campos reducidos en este editor).</div><div class="grid grid-cols-2 gap-4"><div class="flex flex-col"><label class="text-xs font-bold">Nombre</label><input value="${c.name}" oninput="updateContent('${id}', 'name', this.value)" class="p-1 border rounded"></div><div class="flex flex-col"><label class="text-xs font-bold">Clase/Nivel</label><input value="${c.classLevel}" oninput="updateContent('${id}', 'classLevel', this.value)" class="p-1 border rounded"></div></div></div>`;
+                }
+
+                html += `<div class="relative group flex gap-4 items-start mb-6"><div class="flex flex-col gap-1 opacity-40 hover:opacity-100 transition-opacity pt-4 bg-white p-1 rounded shadow-sm flex-shrink-0"><button onclick="moveBlock(${index}, -1)" ${index===0?'disabled':''} class="p-1 hover:bg-slate-200 rounded disabled:opacity-30"><i class="ph ph-arrow-up"></i></button><button onclick="moveBlock(${index}, 1)" ${index===window.state.blocks.length-1?'disabled':''} class="p-1 hover:bg-slate-200 rounded disabled:opacity-30"><i class="ph ph-arrow-down"></i></button><button onclick="removeBlock('${id}')" class="p-1 hover:bg-red-100 text-red-600 rounded mt-2"><i class="ph ph-trash"></i></button></div><div class="flex-1 min-w-0">${editorContent}</div></div>`;
+            });
+
+            container.innerHTML = html;
+
+            document.querySelectorAll('.quill-target').forEach(qContainer => {
+                const blockId = qContainer.getAttribute('data-block');
+                const field = qContainer.getAttribute('data-field');
+                const quill = new Quill(qContainer, {
+                    theme: 'snow',
+                    modules: {
+                        toolbar: {
+                            container: [[{ 'font': [false, 'cinzel', 'medievalsharp', 'lora', 'opensans'] }], [{ 'size': ['small', false, 'large', 'huge'] }], ['bold', 'italic', 'underline', 'strike'], [{ 'color': [] }, 'customColor', { 'background': [] }, 'customBg'], [{ 'list': 'ordered'}, { 'list': 'bullet' }], [{ 'align': [] }], ['clean']],
+                            handlers: {
+                                'customColor': function() { let input = document.createElement('input'); input.type = 'color'; input.value = window.state.settings.titleColor; input.onchange = () => this.quill.format('color', input.value); input.click(); },
+                                'customBg': function() { let input = document.createElement('input'); input.type = 'color'; input.value = '#ffff00'; input.onchange = () => this.quill.format('background', input.value); input.click(); }
+                            }
+                        }
+                    }
+                });
+
+                if (quill.root.innerHTML !== window.state.blocks.find(b=>b.id === blockId).content[field]) {
+                     updateContent(blockId, field, quill.root.innerHTML);
+                }
+
+                quill.on('text-change', function(delta, oldDelta, source) {
+                    if (source === 'user') { updateContent(blockId, field, quill.root.innerHTML); }
+                });
+            });
+        }
+
+        // --- CONVERTIDOR HTML VISTA PREVIA ---
+        function getBlockHtmlString(block) {
+            const c = block.content;
+            let customStyle = c.fontFamily && c.fontFamily !== 'global' ? `font-family: ${c.fontFamily};` : '';
+            
+            // Resolución absoluta de colores para evitar errores de herencia en html2canvas
+            const s = window.state.settings;
+            const titleColor = s.titleColor || '#7f1d1d';
+            const tableBg = s.tableBg || '#fdf1dc';
+            const tableBorder = s.showBorders ? titleColor : 'transparent';
+            const borderWidth = s.showBorders ? '2px' : '0px';
+            const borderThin = s.showBorders ? '1px' : '0px';
+
+            if (block.type === BLOCK_TYPES.SPACER) return `<div class="w-full break-inside-avoid" style="height: ${c.height}mm; display: block;"></div>`;
+            
+            if (block.type === BLOCK_TYPES.HEADING_1) return `<h1 class="text-4xl font-bold mb-4 pb-2 font-serif mt-8 first:mt-0 break-inside-avoid quill-content" style="border-bottom: ${borderWidth} solid ${tableBorder}; color: ${titleColor}; ${customStyle} display: block;">${c.text}</h1>`;
+            
+            if (block.type === BLOCK_TYPES.HEADING_2) return `<h2 class="text-2xl font-bold mt-6 mb-3 font-serif break-inside-avoid quill-content" style="color: ${titleColor}; ${customStyle} display: block;">${c.text}</h2>`;
+            
+            if (block.type === BLOCK_TYPES.TEXT) return `<div class="mb-4 text-justify leading-relaxed font-serif quill-content" style="color: #334155; display: block;">${c.text}</div>`;
+            
+            if (block.type === BLOCK_TYPES.CALLOUT) {
+                const isReadAloud = c.type === 'read';
+                const bg = isReadAloud ? '#f4f1ea' : '#e2e8f0'; 
+                const border = isReadAloud ? `border: 1px solid #d1d5db; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);` : `border-left: 4px solid ${titleColor};`;
+                const titleHtml = c.title ? `<h4 class="font-bold text-lg mb-2" style="color: ${titleColor}; display: block;">${c.title}</h4>` : '';
+                return `
+                    <div class="my-6 p-4 break-inside-avoid block font-serif" style="background-color: ${bg}; ${border} ${customStyle} display: block;">
+                        ${titleHtml}
+                        <div class="quill-content text-slate-800 leading-relaxed text-sm">${c.text}</div>
+                    </div>`;
+            }
+
+            if (block.type === BLOCK_TYPES.TOC) {
+                return `<div id="toc-placeholder-${block.id}" data-toc="true" 
+                        data-title="${c.title || 'Índice de Contenidos'}" 
+                        data-font="${c.fontFamily || 'global'}" 
+                        data-titlecolor="${c.titleColor || titleColor}" 
+                        data-itemcolor="${c.itemColor || '#1e293b'}" 
+                        data-showdots="${c.showDots !== false}" 
+                        data-bordercolor="${tableBorder}"
+                        data-borderwidth="${borderWidth}"
+                        class="my-8 w-full block break-inside-avoid" style="display: block;"></div>`;
+            }
+
+            if (block.type === BLOCK_TYPES.IMAGE) {
+                let alignClasses = 'my-4 break-inside-avoid ';
+                let alignStyles = '';
+                if (c.align === 'left') { alignClasses += 'float-left mr-6 max-w-[50%] '; }
+                else if (c.align === 'right') { alignClasses += 'float-right ml-6 max-w-[50%] '; }
+                else if (c.align === 'center') { alignClasses += 'mx-auto block text-center w-[90%] '; }
+                else if (c.align === 'full') { alignStyles = 'column-span: all; width: 100%;'; alignClasses += 'block text-center '; }
+
+                const frameStyle = c.framed ? `border: 4px solid ${titleColor}; padding: 5px; background-color: ${tableBg}; box-shadow: 0 4px 6px rgba(0,0,0,0.1);` : ``;
+                
+                const cFont = c.captionFont && c.captionFont !== 'global' ? `font-family: ${c.captionFont};` : '';
+                const cSize = c.captionSize || 'text-sm';
+                const captionHtml = c.caption ? `<div class="${cSize} italic mt-2 text-slate-700 text-center font-bold" style="${cFont} display: block;">${c.caption}</div>` : '';
+                
+                return `<div class="${alignClasses}" style="${alignStyles} display: block;"><div style="${frameStyle} display: inline-block; max-width: 100%;">${c.imageUrl ? `<img src="${c.imageUrl}" style="max-width: 100%; max-height: 500px; height: auto; display: block;">` : `<div class="p-8 bg-slate-200 text-slate-500 italic flex items-center justify-center min-h-[150px] min-w-[200px]">Sube una imagen</div>`}</div>${captionHtml}</div>`;
+            }
+
+            if (block.type === BLOCK_TYPES.TABLE) {
+                let alignClasses = 'my-6 break-inside-avoid ';
+                let alignStyles = customStyle;
+                if (c.align === 'left') { alignClasses += 'float-left mr-6 max-w-[50%] '; }
+                else if (c.align === 'right') { alignClasses += 'float-right ml-6 max-w-[50%] '; }
+                else if (c.align === 'center') { alignClasses += 'mx-auto block w-full '; }
+                else if (c.align === 'full') { alignStyles += 'column-span: all; width: 100%; display: block; '; alignClasses += 'block w-full '; }
+                else { alignClasses += 'w-full inline-block '; }
+
+                const hBg = c.useCustomColors && c.headerBg ? c.headerBg : tableBg;
+                const hCol = c.useCustomColors && c.headerColor ? c.headerColor : titleColor;
+                const rOdd = c.useCustomColors && c.rowBgOdd ? c.rowBgOdd : '#f8f1e7';
+                const rEven = c.useCustomColors && c.rowBgEven ? c.rowBgEven : 'transparent';
+                const cellCol = c.useCustomColors && c.cellColor ? c.cellColor : '#334155';
+
+                const titleHtml = c.title ? `<h4 class="font-bold mb-2 uppercase text-sm" style="color: ${titleColor}; display: block;">${c.title}</h4>` : '';
+                const headersHtml = c.headers.map(h => `<th class="p-3 font-bold" style="color: ${hCol};">${h}</th>`).join('');
+                const rowsHtml = c.rows.map((row, rIdx) => `
+                    <tr style="background-color: ${rIdx % 2 === 0 ? rOdd : rEven};">
+                        ${row.map(cell => `<td class="p-3" style="color: ${cellCol}; border-bottom: ${borderThin} solid rgba(0,0,0,.15);">${cell}</td>`).join('')}
+                    </tr>
+                `).join('');
+
+                return `
+                    <div class="${alignClasses}" style="${alignStyles} display: block;">
+                        ${titleHtml}
+                        <table class="w-full text-left border-collapse font-serif text-sm bg-white" style="${!s.showBorders ? 'box-shadow: none; border-radius: 8px; overflow: hidden;' : 'box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);'}">
+                            <thead><tr style="background-color: ${hBg}; border-bottom: ${borderWidth} solid ${tableBorder};">${headersHtml}</tr></thead>
+                            <tbody>${rowsHtml}</tbody>
+                        </table>
+                    </div>`;
+            } 
+
+            if (block.type === BLOCK_TYPES.STAT_BLOCK) {
+                // Reescribimos el Stat Block con HTML explícito para asegurar que html2pdf lo interprete bien
+                const statsHtml = `<table style="width: 100%; text-align: center; color: ${titleColor}; margin: 15px 0; table-layout: fixed; border-collapse: collapse;"><tr>` + 
+                    ['str', 'dex', 'con', 'int', 'wis', 'cha'].map(stat => `
+                        <td style="padding: 0; text-align: center;">
+                            <div style="font-weight: bold; text-transform: uppercase; font-size: 11px; margin-bottom: 2px;">${stat.substring(0,3)}</div>
+                            <div style="font-size: 16px;">${c.stats[stat] || '10'}</div>
+                        </td>`).join('') + 
+                    `</tr></table>`;
+
+                const boxStyle = !s.showBorders ? 'box-shadow: none; border-radius: 8px;' : 'box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);';
+
+                return `
+                    <div class="my-6 break-inside-avoid" style="${customStyle} display: block; width: 100%; padding: 20px; background-color: ${tableBg}; border-top: calc(${borderWidth} * 2) solid ${tableBorder}; border-bottom: calc(${borderWidth} * 2) solid ${tableBorder}; ${boxStyle} box-sizing: border-box;">
+                        <h1 style="font-size: 24px; font-weight: bold; font-family: 'Cinzel', serif; padding-bottom: 4px; color: ${titleColor}; border-bottom: ${borderWidth} solid ${tableBorder}; margin: 0 0 8px 0;">${c.name || 'Monster Name'}</h1>
+                        <p style="font-style: italic; color: #334155; margin: 0 0 8px 0; font-size: 14px; display: block;">${c.meta || 'Medium humanoid'}</p>
+                        
+                        <div style="padding: 8px 0; margin: 12px 0; border-top: ${borderThin} solid ${tableBorder}; border-bottom: ${borderThin} solid ${tableBorder}; color: ${titleColor}; font-size: 14px; display: block;">
+                            <div style="margin-bottom: 4px; display: block;"><strong>Armor Class</strong> ${c.ac || ''}</div>
+                            <div style="margin-bottom: 4px; display: block;"><strong>Hit Points</strong> ${c.hp || ''}</div>
+                            <div style="display: block;"><strong>Speed</strong> ${c.speed || ''}</div>
+                        </div>
+                        
+                        ${statsHtml}
+                        
+                        <div class="quill-content" style="padding-top: 12px; border-top: ${borderThin} solid ${tableBorder}; color: #1e293b; font-size: 14px; display: block;">${c.traits}</div>
+                    </div>`;
+            }
+            return '';
+        }
+
+        // --- RENDER PREVIEW (AUTO-PAGINADO E ÍNDICE) ---
+        function renderPreview() {
+            const container = document.getElementById('preview-blocks');
+            container.innerHTML = ''; 
+            
+            const s = window.state.settings;
+            let pageNum = (parseInt(s.startPageNumber) || 1) - 1; 
+            let currentContentArea = null;
+            let blockPageMap = {}; 
+
+            function createNewPage(isCover = false) {
+                const page = document.createElement('div');
+                page.className = 'a4-page relative';
+                
+                if (isCover) {
+                    currentContentArea = null; 
+                } else {
+                    pageNum++;
+                    
+                    const watermarkHtml = s.watermarkText ? `<div class="watermark">${s.watermarkText}</div>` : '';
+                    
+                    // Texto Arriba (Encabezado)
+                    const headerHtml = s.footerText ? 
+                        `<div class="absolute top-[8mm] left-0 w-full flex justify-end items-center px-[15mm] text-xs font-bold opacity-70 z-0 tracking-widest uppercase" style="color: var(--title-color); font-family: 'Cinzel', serif;">
+                            <span>${s.footerText}</span>
+                        </div>` : '';
+
+                    // Número de Página Centrado (Abajo)
+                    const footerHtml = 
+                        `<div class="absolute bottom-[8mm] left-0 w-full flex justify-center items-center px-[15mm] text-xs font-bold opacity-70 z-0" style="color: var(--title-color); font-family: 'Cinzel', serif;">
+                            <span>- ${pageNum} -</span>
+                        </div>`;
+
+                    page.innerHTML = `
+                        ${watermarkHtml}
+                        ${headerHtml}
+                        <div class="page-content absolute inset-0" style="column-count: ${s.columns}; column-gap: 10mm; column-fill: auto; overflow: hidden; font-family: 'Lora', serif;"></div>
+                        ${footerHtml}
+                    `;
+                    currentContentArea = page.querySelector('.page-content');
+                }
+                container.appendChild(page);
+                return page;
+            }
+
+            let activePage = createNewPage();
+
+            for (let i = 0; i < window.state.blocks.length; i++) {
+                const block = window.state.blocks[i];
+
+                if (block.type === BLOCK_TYPES.PAGE_BREAK) {
+                    activePage = createNewPage();
+                    continue;
+                }
+
+                if (block.type === BLOCK_TYPES.COVER || block.type === BLOCK_TYPES.CHARACTER_SHEET) {
+                    const c = block.content;
+                    
+                    if (currentContentArea && currentContentArea.innerHTML.trim() !== '') {
+                        activePage = createNewPage(true);
+                    } else {
+                        activePage.innerHTML = ''; 
+                    }
+                    
+                    if (block.type === BLOCK_TYPES.COVER) {
+                        const bgUrl = c.imageUrl ? `url('${c.imageUrl}')` : 'none';
+                        activePage.innerHTML = `
+                            <div class="absolute inset-0 z-20 flex flex-col items-center justify-center text-center p-12 bg-cover bg-center" style="background-image: ${bgUrl}; background-color: var(--page-bg);">
+                                ${c.imageUrl ? '<div class="absolute inset-0 bg-white/30 backdrop-blur-sm z-0"></div>' : ''}
+                                <div class="relative z-10 p-12 w-full max-w-2xl">
+                                    <h1 class="text-7xl font-extrabold mb-6 font-serif uppercase tracking-widest drop-shadow-md" style="font-family: 'Cinzel', serif; color: var(--title-color);">${c.title || ''}</h1>
+                                    <h2 class="text-4xl text-slate-700 italic mb-16 font-serif drop-shadow-sm" style="font-family: 'Lora', serif;">${c.subtitle || ''}</h2>
+                                    <div class="mt-24 pt-6" style="border-top: 2px solid var(--table-border);"><p class="text-2xl font-bold text-slate-800 uppercase tracking-wider">${c.author || ''}</p></div>
+                                </div>
+                            </div>`;
+                    } else if (block.type === BLOCK_TYPES.CHARACTER_SHEET) {
+                         activePage.innerHTML = `<div class="absolute inset-0 z-20 flex items-center justify-center text-slate-400 font-bold bg-white text-xl border-[15mm] border-transparent" style="border-image: var(--page-texture) 30 repeat; background-color: var(--page-bg);">La hoja de personaje completa renderiza aquí.</div>`;
+                    }
+
+                    activePage = createNewPage();
+                    continue;
+                }
+
+                const htmlString = getBlockHtmlString(block);
+                if (!htmlString) continue;
+
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = htmlString;
+                const blockNode = tempDiv.firstElementChild;
+
+                if (!currentContentArea) activePage = createNewPage();
+                
+                blockPageMap[block.id] = pageNum;
+                
+                currentContentArea.appendChild(blockNode);
+
+                if (currentContentArea.scrollHeight > Math.ceil(currentContentArea.clientHeight) || 
+                    currentContentArea.scrollWidth > Math.ceil(currentContentArea.clientWidth)) {
+                    
+                    if (currentContentArea.children.length === 1) continue;
+                    
+                    currentContentArea.removeChild(blockNode);
+                    activePage = createNewPage();
+                    
+                    blockPageMap[block.id] = pageNum;
+                    currentContentArea.appendChild(blockNode);
+                }
+            }
+
+            // --- RELLENAR ÍNDICES AUTOMÁTICOS CON LAS NUEVAS PROPIEDADES ---
+            const tocPlaceholders = document.querySelectorAll('[data-toc="true"]');
+            if (tocPlaceholders.length > 0) {
+                const headings = window.state.blocks.filter(b => b.type === BLOCK_TYPES.HEADING_1 || b.type === BLOCK_TYPES.HEADING_2);
+                
+                tocPlaceholders.forEach(el => { 
+                    const tocTitle = el.getAttribute('data-title');
+                    const font = el.getAttribute('data-font');
+                    const titleColor = el.getAttribute('data-titlecolor');
+                    const itemColor = el.getAttribute('data-itemcolor');
+                    const showDots = el.getAttribute('data-showdots') === 'true';
+                    const bColor = el.getAttribute('data-bordercolor');
+                    const bWidth = el.getAttribute('data-borderwidth');
+
+                    let customFont = font !== 'global' ? `font-family: ${font};` : `font-family: 'Cinzel', serif;`;
+                    let itemFont = font !== 'global' ? `font-family: ${font};` : `font-family: 'Open Sans', sans-serif;`;
+
+                    let tocHtml = `<div class="mb-4 block w-full" style="page-break-inside: avoid; display: block;">
+                        <h2 class="text-3xl font-bold mb-4 pb-2" style="color: ${titleColor}; border-bottom: ${bWidth} solid ${bColor}; ${customFont} display: block;">${tocTitle}</h2>`;
+                    
+                    headings.forEach(h => {
+                        const pNum = blockPageMap[h.id] || '-';
+                        const isH1 = h.type === BLOCK_TYPES.HEADING_1;
+                        const ml = isH1 ? '' : 'margin-left: 1.5rem;';
+                        const fw = isH1 ? 'font-weight: bold; font-size: 1.1rem; margin-top: 0.5rem;' : 'font-size: 0.95rem;';
+                        const cleanText = stripHtml(h.content.text);
+                        
+                        const dotsHtml = showDots ? `<div class="flex-grow border-b-2 border-dotted border-slate-400 mx-1 opacity-50 relative top-[-4px]"></div>` : `<div class="flex-grow mx-1"></div>`;
+
+                        tocHtml += `
+                        <div class="flex items-baseline w-full" style="${ml} ${fw} margin-bottom: 0.25rem; color: ${itemColor}; ${itemFont}">
+                            <span class="pr-2">${cleanText}</span>
+                            ${dotsHtml}
+                            <span class="pl-2">${pNum}</span>
+                        </div>`;
+                    });
+                    
+                    tocHtml += '</div>';
+                    el.innerHTML = tocHtml; 
+                });
+            }
+        }
+
+        // Inicialización Local (UI, estilos)
+        window.addEventListener('DOMContentLoaded', () => {
+            applyGlobalStyles();
+            renderSidebar();
+            renderEditor();
+        });
+    </script>
+</body>
+</html>
