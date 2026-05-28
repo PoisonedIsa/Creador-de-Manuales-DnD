@@ -422,6 +422,25 @@
 
         function addBlock(type) { window.state.blocks.push({ id: generateId(), type: type, content: getDefaultContent(type) }); renderEditor(); triggerSave(); }
         function removeBlock(id) { window.state.blocks = window.state.blocks.filter(b => b.id !== id); renderEditor(); triggerSave(); }
+        
+        function duplicateBlock(id) {
+            const index = window.state.blocks.findIndex(b => b.id === id);
+            if (index !== -1) {
+                const originalBlock = window.state.blocks[index];
+                // Copia profunda para no vincular las variables y que se editen por separado
+                const newContent = JSON.parse(JSON.stringify(originalBlock.content));
+                const newBlock = {
+                    id: generateId(),
+                    type: originalBlock.type,
+                    content: newContent
+                };
+                // Insertar justo después del elemento actual
+                window.state.blocks.splice(index + 1, 0, newBlock);
+                renderEditor(); 
+                triggerSave();
+            }
+        }
+
         function moveBlock(index, direction) {
             if (index + direction < 0 || index + direction >= window.state.blocks.length) return;
             const temp = window.state.blocks[index];
@@ -842,7 +861,7 @@
                     editorContent = `<div class="p-4 bg-white border rounded shadow-sm"><h3 class="font-bold text-lg mb-4 text-blue-800"><i class="ph ph-user"></i> Hoja de Personaje Prediseñado</h3><div class="text-sm italic text-slate-500 mb-4">Nota: Para editar la Hoja de Personaje completa, visualízala. (Campos reducidos en este editor).</div><div class="grid grid-cols-2 gap-4"><div class="flex flex-col"><label class="text-xs font-bold">Nombre</label><input value="${c.name}" oninput="updateContent('${id}', 'name', this.value)" class="p-1 border rounded"></div><div class="flex flex-col"><label class="text-xs font-bold">Clase/Nivel</label><input value="${c.classLevel}" oninput="updateContent('${id}', 'classLevel', this.value)" class="p-1 border rounded"></div></div></div>`;
                 }
 
-                html += `<div class="relative group flex gap-4 items-start mb-6"><div class="flex flex-col gap-1 opacity-40 hover:opacity-100 transition-opacity pt-4 bg-white p-1 rounded shadow-sm flex-shrink-0"><button onclick="moveBlock(${index}, -1)" ${index===0?'disabled':''} class="p-1 hover:bg-slate-200 rounded disabled:opacity-30"><i class="ph ph-arrow-up"></i></button><button onclick="moveBlock(${index}, 1)" ${index===window.state.blocks.length-1?'disabled':''} class="p-1 hover:bg-slate-200 rounded disabled:opacity-30"><i class="ph ph-arrow-down"></i></button><button onclick="removeBlock('${id}')" class="p-1 hover:bg-red-100 text-red-600 rounded mt-2"><i class="ph ph-trash"></i></button></div><div class="flex-1 min-w-0">${editorContent}</div></div>`;
+                html += `<div class="relative group flex gap-4 items-start mb-6"><div class="flex flex-col gap-1 opacity-40 hover:opacity-100 transition-opacity pt-4 bg-white p-1 rounded shadow-sm flex-shrink-0"><button onclick="moveBlock(${index}, -1)" ${index===0?'disabled':''} class="p-1 hover:bg-slate-200 rounded disabled:opacity-30" title="Subir"><i class="ph ph-arrow-up"></i></button><button onclick="moveBlock(${index}, 1)" ${index===window.state.blocks.length-1?'disabled':''} class="p-1 hover:bg-slate-200 rounded disabled:opacity-30" title="Bajar"><i class="ph ph-arrow-down"></i></button><button onclick="duplicateBlock('${id}')" class="p-1 hover:bg-blue-100 text-blue-600 rounded mt-2" title="Duplicar"><i class="ph ph-copy"></i></button><button onclick="removeBlock('${id}')" class="p-1 hover:bg-red-100 text-red-600 rounded" title="Eliminar"><i class="ph ph-trash"></i></button></div><div class="flex-1 min-w-0">${editorContent}</div></div>`;
             });
 
             container.innerHTML = html;
